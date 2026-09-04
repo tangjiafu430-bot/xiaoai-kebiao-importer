@@ -1,6 +1,0 @@
-name = "xiaoai-kebiao"
-main = "xiaoai-proxy.js"
-compatibility_date = "2026-09-01"
-
-# 免费版：每天 10 万次请求，无需信用卡
-# 部署后得到的地址形如 https://xiaoai-kebiao.<你的-subdomain>.workers.dev
