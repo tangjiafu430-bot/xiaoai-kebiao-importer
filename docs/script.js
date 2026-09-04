@@ -1,12 +1,10 @@
 // 小爱课表导入器 - 前端逻辑
-// Worker 地址（部署 wrangler 后填这里，或用 prompts 动态读取）
-// 部署后 Cloudflare 会给你一个 https://xxx.workers.dev 地址，把它填到下面：
 const WORKER_URL = "https://xiaoai-kebiao.xiaoai-kebiao.workers.dev"; // 永久部署的 Worker
+const THIS_ORIGIN = location.origin + location.pathname.replace(/[^/]*$/, "");
 
-// 优先用 URL 参数 ?worker=xxx 覆盖，方便切换 Worker
+// 优先用 URL 参数 ?worker=xxx 覆盖
 const urlParams = new URLSearchParams(location.search);
 if (urlParams.get("worker")) {
-  // 不带末尾斜杠
   const w = urlParams.get("worker").replace(/\/$/, "");
   if (w.startsWith("http")) localStorage.setItem("worker_url", w);
 }
@@ -14,14 +12,153 @@ const WORKER = localStorage.getItem("worker_url") || WORKER_URL;
 
 const $ = (id) => document.getElementById(id);
 
+// ============================================================================
+// 凭据自动识别（移植自后端 extract_credentials）
+// ============================================================================
+function extractCredentials(text) {
+  if (!text || !text.trim()) return { appId: "", serviceToken: "", deviceId: "" };
+
+  function looksLikeAuth(s) {
+    return typeof s === "string" && (s.startsWith("DO-TOKEN") || s.startsWith("AO-TOKEN"));
+  }
+
+  // 尝试 JSON 解析
+  let raw = null;
+  try {
+    const parsed = JSON.parse(text);
+    if (typeof parsed === "object" && parsed !== null) raw = parsed;
+  } catch (e) {}
+
+  function jsonGet(...keys) {
+    if (raw && typeof raw === "object") {
+      for (const k of keys) {
+        if (raw[k] != null && raw[k] !== "") return String(raw[k]).trim();
+      }
+    }
+    return null;
+  }
+  function regexFind(...names) {
+    for (const n of names) {
+      const m = text.match(new RegExp('["\']?' + n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + '["\']?\\s*[:=]\\s*["\']([^"\']+?)["\']', "i"));
+      if (m) return m[1].trim();
+    }
+    return null;
+  }
+
+  let appId = jsonGet("appId", "app_id", "appid") || regexFind("appId", "app_id", "appid");
+  let serviceToken = jsonGet("serviceToken", "service_token", "accessToken", "access_token")
+    || regexFind("serviceToken", "service_token", "accessToken", "access_token");
+  let deviceId = jsonGet("deviceId", "device_id", "deviceid", "deviceIdNew")
+    || regexFind("deviceId", "device_id", "deviceid", "deviceIdNew");
+
+  // authorization 字段是完整 Authorization 头，优先级最高
+  const auth = jsonGet("authorization", "Authorization") || regexFind("authorization", "Authorization");
+  if (auth && looksLikeAuth(auth)) {
+    serviceToken = auth;
+    if (!appId) {
+      const m = auth.match(/(?:dev_)?app_id:\s*([^,\s]+)/i);
+      if (m) appId = m[1].trim();
+    }
+    if (!deviceId) {
+      const m = auth.match(/scope_data:([A-Za-z0-9+/=]+)/);
+      if (m) {
+        try {
+          const scope = JSON.parse(atob(m[1]));
+          if (scope && scope.d) deviceId = String(scope.d);
+        } catch (e) {}
+      }
+    }
+  }
+  return { appId: appId || "", serviceToken: serviceToken || "", deviceId: deviceId || "" };
+}
+
+// ============================================================================
+// Bookmarklet 生成（注入 jiaowu_extractor.js，提取后跳回本页）
+// ============================================================================
+function makeBookmarklet() {
+  const base = THIS_ORIGIN;
+  return "javascript:void((function(){"
+    + "var s=document.createElement('script');"
+    + "s.src='" + base + "jiaowu_extractor.js?t='+Date.now();"
+    + "s.setAttribute('data-qzpyp-base','" + location.origin + location.pathname + "');"
+    + "document.head.appendChild(s);"
+    + "})());";
+}
+
+// ============================================================================
+// 事件绑定
+// ============================================================================
 $("btnImport").addEventListener("click", importCourses);
 $("btnList").addEventListener("click", listTables);
 $("btnClear").addEventListener("click", () => {
   $("jsonInput").value = "";
+  $("credPaste").value = "";
+  $("appId").value = "";
+  $("serviceToken").value = "";
+  $("deviceId").value = "";
   $("resultCard").classList.add("hidden");
   $("listCard").classList.add("hidden");
 });
 
+// 凭据粘贴框 → 自动识别
+$("credPaste").addEventListener("input", () => {
+  const { appId, serviceToken, deviceId } = extractCredentials($("credPaste").value);
+  if (appId) $("appId").value = appId;
+  if (serviceToken) $("serviceToken").value = serviceToken;
+  if (deviceId) $("deviceId").value = deviceId;
+});
+
+// 复制提取书签
+$("btnCopyBookmarklet").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(makeBookmarklet());
+    alert("✅ 已复制书签代码\n\n下一步：\n1. 浏览器按 Ctrl+Shift+B 显示书签栏\n2. 右键书签栏 → 添加网页\n3. 名称填「📚 提取课表」\n4. 网址粘进刚复制的代码\n5. 在教务系统课表页点这个书签即可");
+  } catch (e) {
+    prompt("复制下面这段，加到书签栏的网址栏：", makeBookmarklet());
+  }
+});
+
+// 把拖拽链接的 href 设为 bookmarklet
+$("bookmarkletLink").href = makeBookmarklet();
+
+// 从剪贴板自动粘贴 JSON
+$("btnPaste").addEventListener("click", async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text && (text.trim().startsWith("{") || text.trim().startsWith("["))) {
+      $("jsonInput").value = text;
+      $("jsonInput").scrollIntoView({ behavior: "smooth" });
+    } else {
+      alert("剪贴板里没有 JSON，请先在教务系统点「📚 提取课表」书签");
+    }
+  } catch (e) {
+    alert("剪贴板读取失败：" + e.message + "\n请手动 Ctrl+V 粘贴到下方框");
+  }
+});
+
+// ============================================================================
+// 检测 #autofocus，自动从剪贴板读 JSON（从教务页面跳回时触发）
+// ============================================================================
+if (location.hash === "#autofocus" || location.hash === "#autofill") {
+  // 异步读剪贴板
+  (async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && (text.trim().startsWith("{") || text.trim().startsWith("["))) {
+        $("jsonInput").value = text;
+        $("jsonInput").scrollIntoView({ behavior: "smooth" });
+        // 自动滚到凭据区，方便继续操作
+        setTimeout(() => $("credPaste").scrollIntoView({ behavior: "smooth" }), 500);
+      }
+    } catch (e) {}
+    // 清掉 hash 避免刷新重复触发
+    history.replaceState(null, "", location.pathname);
+  })();
+}
+
+// ============================================================================
+// API 调用
+// ============================================================================
 function getCreds() {
   return {
     appId: $("appId").value.trim(),
@@ -48,12 +185,13 @@ async function call(path, body) {
 async function importCourses() {
   const creds = getCreds();
   if (!creds.appId || !creds.serviceToken || !creds.deviceId) {
-    alert("请填入 appId / serviceToken / deviceId");
+    alert("请粘贴小爱 Debug JSON 自动识别凭据，或手动填 appId / serviceToken / deviceId");
+    $("credPaste").focus();
     return;
   }
   const jsonText = $("jsonInput").value.trim();
   if (!jsonText) {
-    alert("请粘贴课表 JSON");
+    alert("请先提取课表 JSON（点「📚 提取课表」书签），或手动粘贴");
     return;
   }
   let parsed;
@@ -148,4 +286,5 @@ async function listTables() {
 });
 
 console.log("Worker 地址:", WORKER);
-console.log("提示：可用 ?worker=https://你的-worker.workers.dev 覆盖");
+console.log("本页 Origin:", THIS_ORIGIN);
+console.log("Bookmarklet:", makeBookmarklet());
