@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+develop-eggs/
+parts/
+sdist/
+wheels/
+*.egg-info
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.spec.bak
+*.manifest
+
+# Virtual env
+venv/
+.venv/
+env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Sensitive / 用户凭据（绝不提交）
+credentials.json
+*_credentials.json
+*.secret
+*.key
+
+# 运行时产物
+access.log
+cloudflared.log
+public_url.txt
+*.log
+
+# 大型二进制依赖（cloudflared.exe ~54MB，GitHub 单文件超 100MB 会被拒；
+# 用户按 README 指引自行下载放到 tools/ 目录）
+tools/cloudflared.exe
+dist/Kebiao/cloudflared.exe
+dist/Kebiao/_internal/cloudflared.exe
+
+# WorkBuddy 本地状态
+.workbuddy/
+
+# 打包输出（用户自行 pyinstaller 重新打包）
+dist/Kebiao/
