@@ -1,7 +1,7 @@
 // 小爱课表导入器 - 前端逻辑
 // Worker 地址（部署 wrangler 后填这里，或用 prompts 动态读取）
 // 部署后 Cloudflare 会给你一个 https://xxx.workers.dev 地址，把它填到下面：
-const WORKER_URL = "https://xiaoai-kebiao.workers.dev"; // ← 部署后替换
+const WORKER_URL = "https://xiaoai-kebiao-temp.cubic-ant.workers.dev"; // 临时 Worker（60分钟过期，需永久部署）
 
 // 优先用 URL 参数 ?worker=xxx 覆盖，方便切换 Worker
 const urlParams = new URLSearchParams(location.search);
