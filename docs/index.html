@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小爱课表导入器</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="container">
+  <header>
+    <h1>小爱课表导入器</h1>
+    <p class="subtitle">教务系统课表 → 小爱课表 App（纯网页版）</p>
+  </header>
+
+  <section class="card">
+    <h2>使用步骤</h2>
+    <ol>
+      <li>校园网内打开教务系统，安装并运行 <a href="https://github.com/tangjiafu430-bot/xiaoai-kebiao-importer/raw/main/强智课表提取器.user.js" target="_blank">油猴提取脚本</a>，复制课表 JSON</li>
+      <li>在小爱 App 课表页面抓取 Debug 信息（含 appId / serviceToken / deviceId）</li>
+      <li>在下方表单填入凭据 + 粘贴 JSON，点击导入</li>
+    </ol>
+    <details>
+      <summary>如何获取小爱凭据？（点击展开）</summary>
+      <p>小爱 App 的课表 H5 页面 URL 里会带 <code>?appId=xxx&serviceToken=xxx&deviceId=xxx</code>，复制这三个值即可。也可在小米浏览器开发者工具里抓包获取。</p>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2>填入凭据</h2>
+    <div class="form-row">
+      <label>App ID<input type="text" id="appId" placeholder="appId"></label>
+      <label>Service Token<input type="text" id="serviceToken" placeholder="serviceToken 或 AO-TOKEN"></label>
+      <label>Device ID<input type="text" id="deviceId" placeholder="deviceId"></label>
+    </div>
+    <label class="form-row">
+      新课表名（可选）
+      <input type="text" id="tableName" placeholder="如 2026春课表">
+    </label>
+  </section>
+
+  <section class="card">
+    <h2>粘贴课表 JSON</h2>
+    <textarea id="jsonInput" placeholder='{"courses":[...],"schedule":{"totalWeek":20,"morningNum":4,...}}'></textarea>
+    <div class="actions">
+      <button id="btnImport">导入到小爱课表</button>
+      <button id="btnList" class="secondary">查看我的课表</button>
+      <button id="btnClear" class="ghost">清空</button>
+    </div>
+  </section>
+
+  <section class="card hidden" id="resultCard">
+    <h2>导入结果</h2>
+    <pre id="resultLog"></pre>
+  </section>
+
+  <section class="card hidden" id="listCard">
+    <h2>我的课表</h2>
+    <ul id="listOutput"></ul>
+  </section>
+
+  <footer>
+    <p>所有数据直接通过 Cloudflare Worker 转发到小爱服务器，不留存。GitHub 仓库：<a href="https://github.com/tangjiafu430-bot/xiaoai-kebiao-importer" target="_blank">xiaoai-kebiao-importer</a></p>
+  </footer>
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>
